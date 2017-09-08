@@ -78,6 +78,7 @@ def moog(*args)play_midi *(args << {port: :moog_minitaur});end
 def stop_midi() midi('C-2', channel: 16);end
 
 def bass(n, *args)
+  begin
   if n
   if n.is_a?(Array)
     args = args << {sustain: n[1]}
@@ -93,10 +94,13 @@ def bass(n, *args)
   if(args_h[:cutoff])
     bass_cc(cutoff: args_h[:cutoff])
   end
-  if n
+  if n && ((n != "_") && n != :_)
     midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 5})
     dshader :decay, :iBass, (note(n)/69.0)
   end
+  end
+  rescue
+    puts $!
   end
 end
 def bass_cc(cc)
@@ -117,41 +121,45 @@ end
 
 def sharp(n,*args)
   if n
-  if n.is_a?(Array)
-    args =  args  << {sustain: n[1]}
-    n = n[0]
-  end
-  if args && args[0].is_a?(Numeric)
-    velocity = args[0]
-    args = args[1..-1]
-  else
-    velocity = 30
-  end
-  if n
-    dshader :decay, :iSharp, (note(n)/69.0)
-    midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 8})
-  end
+    if n.is_a?(Array)
+      args =  args  << {sustain: n[1]}
+      n = n[0]
+    end
+    if args && args[0].is_a?(Numeric)
+      velocity = args[0]
+      args = args[1..-1]
+    else
+      velocity = 30
+    end
+    if n && ((n != "_") && n != :_)
+      dshader :decay, :iSharp, (note(n)/69.0)
+      midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 8})
+    end
   end
 end
 
 def harp(n,*args)
-  if n
-  if n.is_a?(Array)
-    args =  args  << {sustain: n[1]}
-    n = n[0]
-  end
-  if args && args[0].is_a?(Numeric)
-    velocity = args[0]
-    args = args[1..-1]
-  else
+  begin
+    if n
     velocity = 30
+    if n.is_a?(Array)
+      args =  args  << {sustain: n[1]}
+      n = n[0]
+    end
+    if args && args[0].is_a?(Numeric)
+      velocity = args[0]
+      args = args[1..-1]
+    end
+    if n && ((n != "_") && n != :_)
+      midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 3})
+      dshader(:decay, :iHarp, (note(n)/69.0), 0.0041) if n && note(n)
+      dshader(:iBright, velocity/127.0) if velocity
+    end
   end
-  if(n)
-    dshader :decay, :iHarp, (note(n)/69.0), 0.0041
-    dshader :iBright, velocity/127.0
-    midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 3})
+  rescue
+    puts $!.backtrace
   end
-  end
+
 end
 def harp_cc(cc)
   cc.keys.each do |k|
@@ -192,4 +200,23 @@ def zero_x
   midi_all_notes_off port: :iac_bus_1, channel: 7
 end
 end
+
+def space(pat)
+  pat = pat.to_a
+  p = knit([pat[0],  3/4.0],3, [pat[1], 1.0],3, [pat[2],2/4.0],3,
+           [pat[3],  3/4.0],1, [pat[4], 1.0],1, [pat[5],2/4.0],1,
+           [pat[6],  3/4.0],1, [pat[7], 1.0],1, [pat[8],2/4.0],1,
+           [pat[9],  3/4.0],1, [pat[10],1.0],1, [pat[11],2/4.0], 1,
+           [pat[12], 3/4.0],1, [pat[13],1.0],1, [pat[14],2/4.0 + (3-3/4.0) - 0.25],1)
+  if pat.count > 15
+    p = p + knit(
+                 [pat[15], 3/4.0],3, [pat[16],1.0],3, [pat[17],2/4.0],3,
+                 [pat[18], 3/4.0],1, [pat[19],1.0],1, [pat[20],2/4.0],1,
+                 [pat[21], 3/4.0],1, [pat[22],1.0],1, [pat[23],2/4.0],1,
+                 [pat[24], 3/4.0],1, [pat[25],1.0],1, [pat[26],2/4.0], 1,
+                 [pat[27], 3/4.0],1, [pat[28],1.0],1, [pat[29],2/4.0 + (3-3/4.0) - 0.25],1)
+  end
+  p
+end
+
 puts "Init Complete"
