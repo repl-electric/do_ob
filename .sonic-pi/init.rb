@@ -8,6 +8,7 @@ set_volume! 1.0
 def note_slices(n, m)
   NoteSlices.find(note: n, max: m, pat: "sop|alto|bass").select{|s| s[:path] =~ /sop|alto/}.take(64)
 end
+uncomment do
 @slices ||= {"Gs2/4" => note_slices("Gs2",1/4.0),"D2/4" => note_slices("D2",1/4.0), "E2/4" => note_slices("E2",1/4.0), "A2/4" => note_slices("A2",1/4.0), "Fs2/4" => note_slices("F#2",1/4.0),"Fs2/8" => note_slices("F#2",1/8.0), "E3/4" => note_slices("E3",1/4.0), "D3/4" => note_slices("D3",1/4.0),"D3/8" => note_slices("D3",1/8.0),"Cs3/4" => note_slices("C#3",1/4.0), "Fs3/8" => note_slices("F#3",1/8.0),"Fs3/4" => note_slices("F#3",1/4.0), "Gs3/4" => note_slices("G#3",1/4.0), "A3/8" => note_slices("A3",1/8.0),"A3/4" => note_slices("A3",1/4.0), "B3/4" => note_slices("B3",1/4.0), "Cs4/4" => note_slices("C#4",1/4.0), "Cs4/8" => note_slices("C#4",1/8.0), "D4/4" => note_slices("D4",1/4.0),"D4/8" => note_slices("D4",1/8.0), "E4/4" => note_slices("E4",1/4.0),"E4/8" => note_slices("E4",1/8.0), "Fs4/4" => note_slices("F#4",1/4.0),"Fs4/8" => note_slices("F#4",1/8.0), "FS4/8" => note_slices("F#4",1/8.0), "Gs4/4" => note_slices("G#4",1/4.0), "B4/4" => note_slices("B4",1/4.0),"Fs5/4" => note_slices("F#5",1/4.0), "Fs6/4" => note_slices("F#6",1/4.0),"A4/4" => note_slices("A4",1/4.0),"E5/4" => note_slices("E5",1/4.0)}
 @slices.values.flatten.each{|f| load_sample f[:path]}
 puts @slices.values.flatten.count
@@ -70,57 +71,104 @@ def play_midi(*args)
     midi *args
   end
 end
-
 def form(*args)play_midi *(args << {port: :reaktor_6_virtual_input});end
 def mass(*args)play_midi *(args << {port: :massive_virtual_input});end
 def blof(*args)play_midi *(args << {port: :blofeld});end
 def moog(*args)play_midi *(args << {port: :moog_minitaur});end
 def stop_midi() midi('C-2', channel: 16);end
 
-def bass(note, *args)
-  if note.is_a?(Array)
-    args = args << {sustain: note[1]}
-    note = note[0]
+def bass(n, *args)
+  if n
+  if n.is_a?(Array)
+    args = args << {sustain: n[1]}
+    n = n[0]
+  end
+  if args && args[0].is_a?(Numeric)
+    velocity = args[0]
+    args = args[1..-1]
+  else
+    velocity = 127
   end
   args_h = resolve_synth_opts_hash_or_array(args)
   if(args_h[:cutoff])
-    bass_cc(args_h[:cutoff])
+    bass_cc(cutoff: args_h[:cutoff])
   end
-  midi note, *(args << {port: :iac_bus_1} << {channel: 5})
+  if n
+    midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 5})
+    dshader :decay, :iBass, (note(n)/69.0)
+  end
+  end
 end
-def bass_cc(vv)
-  #6=>cutoff
-  midi_cc 6, vv*127.0, port: :iac_bus_1, channel: 5
+def bass_cc(cc)
+  cc.keys.each do |k|
+    n = case k
+        when :cutoff; 6
+        else
+          nil
+        end
+    if n
+      midi_cc n, cc[k]*127.0, port: :iac_bus_1, channel: 5
+    end
+  end
 end
 def bass_x
   midi_all_notes_off port: :iac_bus_1, channel: 5
 end
 
-def sharp(note,*args)
-  if note.is_a?(Array)
-    args =  args  << {sustain: note[1]}
-    note = note[0]
+def sharp(n,*args)
+  if n
+  if n.is_a?(Array)
+    args =  args  << {sustain: n[1]}
+    n = n[0]
   end
-  midi note, *(args << {port: :iac_bus_1} << {channel: 8})
-end
-def harp(note,*args)
-  if note.is_a?(Array)
-    args =  args  << {sustain: note[1]}
-    note = note[0]
-  end
-  midi note, *(args << {port: :iac_bus_1} << {channel: 3})
-end
-def harp_cc(cc,vv)
-  n = case cc
-  when :cutoff; 4
-  when :gain;   5
-  when :drive;  8
-  when :charge; 9
-  when :sound; 12
-  when :phase; 13
+  if args && args[0].is_a?(Numeric)
+    velocity = args[0]
+    args = args[1..-1]
   else
+    velocity = 30
   end
-  midi_cc n, (vv*127.0), port: :iac_bus_1, channel: 3
+  if n
+    dshader :decay, :iSharp, (note(n)/69.0)
+    midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 8})
+  end
+  end
+end
+
+def harp(n,*args)
+  if n
+  if n.is_a?(Array)
+    args =  args  << {sustain: n[1]}
+    n = n[0]
+  end
+  if args && args[0].is_a?(Numeric)
+    velocity = args[0]
+    args = args[1..-1]
+  else
+    velocity = 30
+  end
+  if(n)
+    dshader :decay, :iHarp, (note(n)/69.0), 0.0041
+    dshader :iBright, velocity/127.0
+    midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 3})
+  end
+  end
+end
+def harp_cc(cc)
+  cc.keys.each do |k|
+    n = case k
+        when :cutoff; 4
+        when :gain;   5
+        when :drive;  8
+        when :charge; 9
+        when :sound; 12
+        when :phase; 13
+        else
+          nil
+        end
+    if n
+      midi_cc n, (cc[k] * 127.0), port: :iac_bus_1, channel: 3
+    end
+  end
 end
 def harp_x
   midi_all_notes_off port: :iac_bus_1, channel: 3
@@ -133,11 +181,15 @@ def jup_x
   midi_all_notes_off port: :iac_bus_1, channel: 4
 end
 
-def zero(*args)
-  midi *(args << {port: :iac_bus_1} << {channel: 7})
+def zero(n,*args)
+  if n.is_a?(Array)
+    args =  args  << {sustain: n[1]}
+    n = n[0]
+  end
+  midi n, *(args << {port: :iac_bus_1} << {channel: 9})
 end
 def zero_x
   midi_all_notes_off port: :iac_bus_1, channel: 7
 end
-
+end
 puts "Init Complete"
