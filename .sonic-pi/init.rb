@@ -74,7 +74,7 @@ end
 def form(*args)play_midi *(args << {port: :reaktor_6_virtual_input});end
 def mass(*args)play_midi *(args << {port: :massive_virtual_input});end
 def blof(*args)play_midi *(args << {port: :blofeld});end
-def moog(*args)play_midi *(args << {port: :moog_minitaur});end
+def moog(*args) midi *(args << {port: :iac_bus_1, channel: 11});end
 def stop_midi() midi('C-2', channel: 16);end
 
 def bass(n, *args)
@@ -103,6 +103,33 @@ def bass(n, *args)
     puts $!
   end
 end
+def bad_bass(n, *args)
+  begin
+    if n
+      if n.is_a?(Array)
+        args = args << {sustain: n[1]}
+        n = n[0]
+      end
+      if args && args[0].is_a?(Numeric)
+        velocity = args[0]
+        args = args[1..-1]
+      else
+        velocity = 127
+      end
+      args_h = resolve_synth_opts_hash_or_array(args)
+      if(args_h[:cutoff])
+        bass_cc(cutoff: args_h[:cutoff])
+      end
+      if n && ((n != "_") && n != :_)
+        midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 6})
+        dshader :decay, :iBass, (note(n)/69.0)
+      end
+    end
+  rescue
+    puts $!
+  end
+end
+
 def bass_cc(cc)
   cc.keys.each do |k|
     n = case k
@@ -118,7 +145,46 @@ end
 def bass_x
   midi_all_notes_off port: :iac_bus_1, channel: 5
 end
-
+def sop(n,*args)
+  if n
+    if n.is_a?(Array)
+      args =  args  << {sustain: n[1]}
+      n = n[0]
+    end
+    if args && args[0].is_a?(Numeric)
+      velocity = args[0]
+      args = args[1..-1]
+    else
+      velocity = 30
+    end
+    if n && ((n != "_") && n != :_)
+      midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 10})
+    end
+  end
+end
+def sop_on(n, *args)
+  if n
+    if n.is_a?(Array)
+      args =  args  << {sustain: n[1]}
+      n = n[0]
+    end
+    if args && args[0].is_a?(Numeric)
+      velocity = args[0]
+      args = args[1..-1]
+    else
+      velocity = 30
+    end
+    if n && ((n != "_") && n != :_)
+      midi_note_on n, velocity, *(args << {port: :iac_bus_1} << {channel: 10})
+    end
+  end
+end
+def sop_off(n, *args)
+  midi_note_off n, *(args << {port: :iac_bus_1} << {channel: 10})
+end
+def sop_cc(*args)
+  midi_cc *(args << {port: :iac_bus_1} << { channel: 10})
+end
 def sharp(n,*args)
   if n
     if n.is_a?(Array)
@@ -141,26 +207,53 @@ end
 def harp(n,*args)
   begin
     if n
-    velocity = 30
-    if n.is_a?(Array)
-      args =  args  << {sustain: n[1]}
-      n = n[0]
+      velocity = 30
+      if n.is_a?(Array)
+        args =  args  << {sustain: n[1]}
+        n = n[0]
+      end
+      if args && args[0].is_a?(Numeric)
+        velocity = args[0]
+        args = args[1..-1]
+      end
+      if n && ((n != "_") && n != :_)
+        args_h = resolve_synth_opts_hash_or_array(args)
+        harp_cc(args_h)
+
+        midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 3})
+        dshader(:decay, :iHarp, (note(n)/69.0), 0.0041) if n && note(n)
+        dshader(:iBright, velocity/127.0) if velocity
+      end
     end
-    if args && args[0].is_a?(Numeric)
-      velocity = args[0]
-      args = args[1..-1]
-    end
-    if n && ((n != "_") && n != :_)
-      midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 3})
-      dshader(:decay, :iHarp, (note(n)/69.0), 0.0041) if n && note(n)
-      dshader(:iBright, velocity/127.0) if velocity
-    end
-  end
   rescue
     puts $!.backtrace
   end
-
 end
+
+def musicbox(n,*args)
+  begin
+    if n
+      velocity = 30
+      if n.is_a?(Array)
+        args =  args  << {sustain: n[1]}
+        n = n[0]
+      end
+      if args && args[0].is_a?(Numeric)
+        velocity = args[0]
+        args = args[1..-1]
+      end
+      if n && ((n != "_") && n != :_)
+        args_h = resolve_synth_opts_hash_or_array(args)
+        harp_cc(args_h)
+
+        midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 13})
+      end
+    end
+  rescue
+    puts $!.backtrace
+  end
+end
+
 def harp_cc(cc)
   cc.keys.each do |k|
     n = case k
@@ -168,16 +261,20 @@ def harp_cc(cc)
         when :gain;   5
         when :drive;  8
         when :charge; 9
-        when :sound; 12
-        when :phase; 13
+        when :fx;     12
+        when :sound;  42
+        when :bass;   36
+        when :phase;  13
+        when :mod;    1
         else
           nil
         end
     if n
-      midi_cc n, (cc[k] * 127.0), port: :iac_bus_1, channel: 3
+      midi_cc n, (cc[k] * 127.0).round, port: :iac_bus_1, channel: 3
     end
   end
 end
+
 def harp_x
   midi_all_notes_off port: :iac_bus_1, channel: 3
 end
@@ -219,4 +316,25 @@ def space(pat)
   p
 end
 
+def b_space(pat)
+  q = ring([pat[0],3], [pat[1],3],[pat[2],3],
+           [pat[4],3], [pat[5],3], [pat[6],1],
+           [pat[7],3], [pat[8],2], [pat[9],1],
+           [pat[10],1.0])
+
+  if pat.count > 10
+    q = q + ring([pat[11],3], [pat[12],3],[pat[13],3],
+                 [pat[14],3], [pat[15],3], [pat[16],1],
+                 [pat[17],2],  [pat[18], 0.5, 80],[pat[19], 0.5,100],
+                 [pat[20], 1+1+1+1.0, 70])
+  end
+  q
+end
+
+def sidechain
+  midi :A2, port: :iac_bus_1, channel: 12
+end
+
+k1,k2 = Frag[/kick/,9], Mountain[/subkick/,0]
+h1,h2,h3 = Frag[/hat/,8], Frag[/hat/,9],  Frag[/hat/,7]
 puts "Init Complete"
