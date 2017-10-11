@@ -157,6 +157,10 @@ def sop(n,*args)
     else
       velocity = 30
     end
+    args_h = resolve_synth_opts_hash_or_array(args)
+    if(args_h[:mode])
+      sop_mode(args_h[:mode])
+    end
     if n && ((n != "_") && n != :_)
       midi n, velocity, *(args << {port: :iac_bus_1} << {channel: 10})
     end
@@ -174,6 +178,10 @@ def sop_on(n, *args)
     else
       velocity = 30
     end
+    args_h = resolve_synth_opts_hash_or_array(args)
+    if(args_h[:mode])
+      sop_mode(args_h[:mode])
+    end
     if n && ((n != "_") && n != :_)
       midi_note_on n, velocity, *(args << {port: :iac_bus_1} << {channel: 10})
     end
@@ -184,6 +192,9 @@ def sop_off(n, *args)
 end
 def sop_cc(*args)
   midi_cc *(args << {port: :iac_bus_1} << { channel: 10})
+end
+def sop_mode(mode)
+  sop ['C-1','Cs-1','D-1','Ds-1','E-1', 'F-1'][mode]
 end
 def sharp(n,*args)
   if n
@@ -292,6 +303,41 @@ def zero(n,*args)
     n = n[0]
   end
   midi n, *(args << {port: :iac_bus_1} << {channel: 9})
+end
+def zero_on(n, *args)
+    if n
+    if n.is_a?(Array)
+      args =  args  << {sustain: n[1]}
+      n = n[0]
+    end
+    if args && args[0].is_a?(Numeric)
+      velocity = args[0]
+      args = args[1..-1]
+    else
+      velocity = 30
+    end
+    args_h = resolve_synth_opts_hash_or_array(args)
+    if(args_h[:mode])
+      sop_mode(args_h[:mode])
+    end
+    if n && ((n != "_") && n != :_)
+      midi_note_on n, velocity, *(args << {port: :iac_bus_1} << {channel: 10})
+    end
+  end
+end
+def zero_cc(*args)
+  cc = resolve_synth_opts_hash_or_array(args)
+  cc.keys.each do |k|
+    n = case k
+        when :port; 65
+        when :port_time; 5
+        else
+          nil
+        end
+    if n
+      midi_cc n, cc[k], *(args << {port: :iac_bus_1} << {channel: 9})
+    end
+  end
 end
 def zero_x
   midi_all_notes_off port: :iac_bus_1, channel: 7
